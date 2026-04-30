@@ -3,6 +3,11 @@ Generate the Funded & Found Out LinkedIn carousel PDF.
 
 Each slide is rendered as a 1080x1080 PNG via Playwright,
 then all slides are combined into a single PDF via Pillow.
+
+Design v2 (April 2026):
+  - White ground, black ink, single accent color extracted per company
+  - Per-company slide is screenshot-led, Bierut-style grid
+  - Headline + 5 pithy graded observations, hairline rules, generous space
 """
 from __future__ import annotations
 import asyncio
@@ -10,6 +15,7 @@ import base64
 import html as html_lib
 import io
 import logging
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from PIL import Image
@@ -19,11 +25,17 @@ logger = logging.getLogger(__name__)
 SLIDE_W = 1080
 SLIDE_H = 1080
 
+INK = '#0a0a0a'
+PAPER = '#ffffff'
+RULE = '#e3e3e3'
+MUTE = '#7a7a7a'
+SOFT = '#444444'
+
 GRADE_COLORS = {
-    'A': '#22c55e',
-    'B': '#3b82f6',
-    'C': '#f59e0b',
-    'D': '#ef4444',
+    'A': '#1f8a4c',
+    'B': '#1d4ed8',
+    'C': '#b8860b',
+    'D': '#b91c1c',
 }
 
 DIMENSION_LABELS = {
@@ -38,198 +50,326 @@ BASE_CSS = """
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   width: 1080px; height: 1080px; overflow: hidden;
-  background: #0a0a0a;
+  background: #ffffff;
+  color: #0a0a0a;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
 }
+.mono { font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+.rule { height: 1px; background: #e3e3e3; }
 """
 
 
-# ─── SLIDE BUILDERS ───────────────────────────────────────────────────────────
+# ─── COLOR EXTRACTION ─────────────────────────────────────────────────────────
 
-def build_intro_slide(week_label: str, company_count: int) -> str:
-    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-{BASE_CSS}
-body {{
-  display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  text-align: center; padding: 80px;
-}}
-.eyebrow {{
-  font-size: 12px; font-weight: 700; letter-spacing: 3px;
-  color: #ff6b35; text-transform: uppercase; margin-bottom: 28px;
-}}
-.title {{
-  font-size: 78px; font-weight: 800; color: #fff;
-  line-height: 0.95; margin-bottom: 28px; letter-spacing: -3px;
-}}
-.title em {{ color: #ff6b35; font-style: normal; }}
-.subtitle {{
-  font-size: 20px; color: #777; font-weight: 300; line-height: 1.5;
-  max-width: 560px; margin-bottom: 48px;
-}}
-.week {{ color: #444; font-size: 13px; font-weight: 500; letter-spacing: 1px; margin-bottom: 36px; }}
-.badges {{ display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 48px; }}
-.badge {{
-  background: #141414; border: 1px solid #252525;
-  border-radius: 6px; padding: 8px 16px;
-  font-size: 13px; color: #666; font-weight: 500;
-}}
-.badge b {{ color: #ff6b35; }}
-.byline {{ font-size: 13px; color: #333; letter-spacing: 1px; }}
-</style>
-</head><body>
-  <div class="eyebrow">Weekly AI Marketing Report</div>
-  <div class="title">Funded &amp;<br><em>Found Out.</em></div>
-  <div class="subtitle">{company_count} newly funded AI companies,<br>graded on their marketing.</div>
-  <div class="week">{week_label}</div>
-  <div class="badges">
-    <div class="badge"><b>C</b>entricity</div>
-    <div class="badge"><b>L</b>egibility</div>
-    <div class="badge"><b>E</b>dge</div>
-    <div class="badge"><b>A</b>rgument</div>
-    <div class="badge"><b>R</b>ecall</div>
-  </div>
-  <div class="byline">by Josh Mait &nbsp;·&nbsp; Pavilion</div>
-</body></html>"""
-
-
-def _embed_screenshot(path: str) -> str:
+def extract_accent_color(path: str, fallback: str = '#0a0a0a') -> str:
     """
-    Resize the tall screenshot to a compact JPEG and embed as base64.
-    The image is 1440x1800 — displayed at full width it naturally shows
-    the top of the page (nav, logo, hero) without any cropping needed.
+    Pull a saturated dominant color from the top of a screenshot.
+    Skips near-white, near-black, and low-saturation grays.
     """
-    placeholder = '<div style="width:100%;height:100%;background:#111;border-radius:8px;"></div>'
+    if not path or not Path(path).exists():
+        return fallback
+    try:
+        img = Image.open(path).convert('RGB')
+        w, h = img.size
+        # Look at the top portion only — that's where the brand lives (nav + hero)
+        img = img.crop((0, 0, w, min(h, 1000)))
+        img.thumbnail((180, 180), Image.LANCZOS)
+        pixels = list(img.getdata())
+
+        buckets: Counter = Counter()
+        for r, g, b in pixels:
+            mx, mn = max(r, g, b), min(r, g, b)
+            sat = (mx - mn) / mx if mx > 0 else 0
+            lum = (r + g + b) / 3
+            if lum < 35 or lum > 232:
+                continue
+            if sat < 0.30:
+                continue
+            buckets[(r // 24 * 24, g // 24 * 24, b // 24 * 24)] += 1
+
+        if not buckets:
+            return fallback
+
+        (r, g, b), _ = buckets.most_common(1)[0]
+        # Darken slightly for ink-on-white legibility
+        r = int(r * 0.88)
+        g = int(g * 0.88)
+        b = int(b * 0.88)
+        return f'#{r:02x}{g:02x}{b:02x}'
+    except Exception as e:
+        logger.warning(f"Color extraction failed for {path}: {e}")
+        return fallback
+
+
+# ─── SCREENSHOT EMBED ─────────────────────────────────────────────────────────
+
+def _embed_hero_crop(path: str) -> str:
+    """
+    Crop the screenshot to a consistent hero + nav frame and embed as base64.
+    Source is 1440x1800. We keep the top 1100px (nav + full hero) and downscale.
+    """
+    placeholder = '<div style="width:100%;aspect-ratio:8/5;background:#f3f3f3;"></div>'
     if not path or not Path(path).exists():
         return placeholder
     try:
         img = Image.open(path).convert('RGB')
-        # Resize to max 900px wide — keeps aspect ratio, reduces base64 size
-        img.thumbnail((900, 1125), Image.LANCZOS)
+        w, h = img.size
+        crop_h = min(h, 1100)
+        img = img.crop((0, 0, w, crop_h))
+        img.thumbnail((1100, 1100), Image.LANCZOS)
         buf = io.BytesIO()
-        img.save(buf, format='JPEG', quality=85)
+        img.save(buf, format='JPEG', quality=88)
         b64 = base64.b64encode(buf.getvalue()).decode()
         return (
             f'<img src="data:image/jpeg;base64,{b64}" '
-            f'style="width:100%;display:block;border-radius:8px;" />'
+            f'style="width:100%;display:block;" />'
         )
     except Exception as e:
         logger.warning(f"Screenshot embed failed for {path}: {e}")
         return placeholder
 
 
-def build_overview_slide(
+# ─── SLIDE BUILDERS ───────────────────────────────────────────────────────────
+
+def build_intro_slide(week_label: str, company_count: int) -> str:
+    company_word = 'company' if company_count == 1 else 'companies'
+    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+{BASE_CSS}
+body {{
+  background: #0a0a0a; color: #ffffff;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 80px 80px 64px;
+}}
+.top {{
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: #999; font-weight: 600;
+}}
+.center {{ display: flex; flex-direction: column; gap: 32px; max-width: 880px; }}
+.kicker {{
+  font-size: 12px; letter-spacing: 3px; text-transform: uppercase;
+  color: #fff; font-weight: 700;
+}}
+.title {{
+  font-size: 96px; font-weight: 800; color: #fff;
+  line-height: 0.95; letter-spacing: -3.5px;
+}}
+.subtitle {{
+  font-size: 22px; color: #bdbdbd; font-weight: 400; line-height: 1.45;
+  max-width: 620px;
+}}
+.framework {{
+  display: flex; gap: 0; border-top: 1px solid #2a2a2a; padding-top: 20px;
+}}
+.dim {{ flex: 1; padding-right: 16px; }}
+.dim .letter {{
+  font-size: 28px; font-weight: 800; color: #fff; line-height: 1;
+}}
+.dim .name {{
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: #888; font-weight: 600; margin-top: 8px;
+}}
+.byline {{
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #777; font-weight: 600;
+}}
+</style>
+</head><body>
+  <div class="top">
+    <div>Funded &amp; Found Out</div>
+    <div>{week_label}</div>
+  </div>
+  <div class="center">
+    <div class="kicker">Weekly AI Marketing Report</div>
+    <div class="title">Funded.<br>And found out.</div>
+    <div class="subtitle">{company_count} newly funded AI {company_word}, graded on their marketing.</div>
+    <div class="framework">
+      <div class="dim"><div class="letter">C</div><div class="name">Centricity</div></div>
+      <div class="dim"><div class="letter">L</div><div class="name">Legibility</div></div>
+      <div class="dim"><div class="letter">E</div><div class="name">Edge</div></div>
+      <div class="dim"><div class="letter">A</div><div class="name">Argument</div></div>
+      <div class="dim"><div class="letter">R</div><div class="name">Recall</div></div>
+    </div>
+  </div>
+  <div class="byline">
+    <div>By Josh Mait · Pavilion</div>
+    <div>Issue · {week_label}</div>
+  </div>
+</body></html>"""
+
+
+def build_company_slide(
     company: dict,
     evaluation: dict,
     screenshot_paths: list,
     slide_num: int,
     total: int,
+    week_label: str,
 ) -> str:
-    stage = company.get('funding_stage', '').replace('_', ' ').title()
-    funding_badge = f"${company.get('funding_amount', '?')}M {stage}"
     company_name = html_lib.escape(company.get('company_name', ''))
-    website_url = html_lib.escape(company.get('website_url', ''))
-    paragraph = html_lib.escape(evaluation.get('overall_paragraph', company.get('description', '')))
-    if len(paragraph) > 280:
-        paragraph = paragraph[:280] + '…'
-
-    screenshot_html = _embed_screenshot(screenshot_paths[0] if screenshot_paths else '')
-
-    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-{BASE_CSS}
-body {{ display: flex; flex-direction: column; padding: 48px; overflow: hidden; }}
-.topbar {{
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 18px; flex-shrink: 0;
-}}
-.counter {{ font-size: 11px; color: #444; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }}
-.funding {{
-  background: #ff6b35; color: #fff;
-  border-radius: 100px; padding: 5px 16px;
-  font-size: 13px; font-weight: 700;
-}}
-.name {{
-  font-size: 48px; font-weight: 800; color: #fff;
-  line-height: 1.0; letter-spacing: -1.5px; margin-bottom: 4px; flex-shrink: 0;
-}}
-.url {{ font-size: 12px; color: #444; margin-bottom: 12px; flex-shrink: 0; }}
-.paragraph {{
-  font-size: 14px; color: #aaa; line-height: 1.6; font-weight: 300;
-  margin-bottom: 18px; flex-shrink: 0;
-}}
-.screenshot-wrap {{
-  flex: 1; overflow: hidden;
-  border-radius: 8px;
-  border: 2px solid #ff6b35;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-}}
-</style>
-</head><body>
-  <div class="topbar">
-    <div class="counter">Company {slide_num} of {total}</div>
-    <div class="funding">{html_lib.escape(funding_badge)}</div>
-  </div>
-  <div class="name">{company_name}</div>
-  <div class="url">{website_url}</div>
-  <div class="paragraph">{paragraph}</div>
-  <div class="screenshot-wrap">{screenshot_html}</div>
-</body></html>"""
-
-
-def build_grades_slide(company: dict, evaluation: dict) -> str:
-    company_name = html_lib.escape(company.get('company_name', ''))
-    headline = html_lib.escape(evaluation.get('headline', f"Grading {company.get('company_name', '')}"))
+    website_url = html_lib.escape((company.get('website_url') or '').replace('https://', '').replace('http://', '').rstrip('/'))
+    stage = (company.get('funding_stage') or '').replace('_', ' ').upper()
+    funding_label = f"${company.get('funding_amount', '?')}M · {stage}".strip(' ·')
+    headline = html_lib.escape(evaluation.get('headline', '') or '')
+    paragraph = html_lib.escape(evaluation.get('overall_paragraph', '') or '')
+    if len(paragraph) > 360:
+        paragraph = paragraph[:360].rstrip() + '…'
     grades = evaluation.get('grades', {})
+
+    shot_path = screenshot_paths[0] if screenshot_paths else ''
+    accent = extract_accent_color(shot_path, fallback=INK)
+    screenshot_html = _embed_hero_crop(shot_path)
 
     rows = ''
     for key in ['centricity', 'legibility', 'edge', 'argument', 'recall']:
         data = grades.get(key, {})
-        grade = data.get('grade', 'C')
-        explanation = html_lib.escape(data.get('explanation', ''))
-        if len(explanation) > 195:
-            explanation = explanation[:195] + '…'
-        color = GRADE_COLORS.get(grade, '#888')
+        grade = data.get('grade', '?')
+        explanation = html_lib.escape(data.get('explanation', '') or '')
+        if len(explanation) > 140:
+            explanation = explanation[:140].rstrip() + '…'
         label = DIMENSION_LABELS.get(key, key.title())
-
+        grade_color = GRADE_COLORS.get(grade, MUTE)
         rows += f"""
-<div style="display:flex;gap:18px;padding:13px 0;border-bottom:1px solid #181818;align-items:flex-start;">
-  <div style="width:42px;height:42px;flex-shrink:0;border-radius:7px;
-              background:{color}18;border:1px solid {color}40;
-              display:flex;align-items:center;justify-content:center;
-              font-size:20px;font-weight:800;color:{color};">{grade}</div>
-  <div style="flex:1;min-width:0;">
-    <div style="font-size:11px;font-weight:700;color:{color};letter-spacing:1.5px;
-                text-transform:uppercase;margin-bottom:3px;">{label}</div>
-    <div style="font-size:14px;color:#888;line-height:1.5;font-weight:300;">{explanation}</div>
+<div class="row">
+  <div class="row-head">
+    <div class="dim-label">{label}</div>
+    <div class="grade" style="color:{grade_color};">{grade}</div>
   </div>
+  <div class="obs">{explanation}</div>
 </div>"""
 
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
 {BASE_CSS}
-body {{ display: flex; flex-direction: column; padding: 52px; }}
-.label {{
-  font-size: 11px; color: #ff6b35; font-weight: 700;
-  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px;
+body {{ display: flex; flex-direction: column; padding: 44px 56px 36px; }}
+
+.metabar {{
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: {MUTE}; font-weight: 600;
+  padding-bottom: 14px; border-bottom: 1px solid {RULE};
+}}
+.metabar .meta-mid {{ color: {INK}; }}
+
+.headline-zone {{
+  padding: 26px 0 22px;
 }}
 .headline {{
-  font-size: 26px; font-weight: 700; color: #fff;
-  line-height: 1.3; letter-spacing: -0.3px; margin-bottom: 28px;
-  max-width: 900px;
+  font-size: 42px; font-weight: 800; color: {INK};
+  line-height: 1.05; letter-spacing: -1.4px;
+  max-width: 980px;
 }}
+.byline {{
+  margin-top: 14px;
+  font-size: 12px; letter-spacing: 1.8px; text-transform: uppercase;
+  color: {MUTE}; font-weight: 600;
+}}
+.byline strong {{ color: {INK}; font-weight: 700; }}
+
+.grid {{
+  display: flex; gap: 36px; flex: 1; min-height: 0;
+  padding-top: 22px; border-top: 1px solid {RULE};
+}}
+
+.shot-col {{
+  width: 56%; display: flex; flex-direction: column; justify-content: flex-start;
+}}
+.shot-frame-outer {{
+  border: 1px solid {accent};
+  padding: 6px;
+  background: #fff;
+}}
+.shot-frame-inner {{
+  border: 7px solid {accent};
+  line-height: 0;
+  background: #f5f5f5;
+}}
+.shot-caption {{
+  margin-top: 12px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: {MUTE}; font-weight: 600;
+}}
+.shot-caption .dot {{
+  display: inline-block; width: 8px; height: 8px;
+  background: {accent}; margin-right: 8px; vertical-align: middle;
+}}
+.body-copy {{
+  margin-top: 22px; padding-top: 18px;
+  border-top: 1px solid {RULE};
+  font-size: 14px; color: {SOFT}; line-height: 1.55; font-weight: 400;
+  letter-spacing: -0.05px;
+}}
+.body-copy::first-letter {{ font-weight: 700; color: {INK}; }}
+
+.grades-col {{
+  width: 44%; display: flex; flex-direction: column; justify-content: space-between;
+}}
+.row {{
+  padding: 12px 0 14px;
+  border-bottom: 1px solid {RULE};
+}}
+.row:last-child {{ border-bottom: none; }}
+.row-head {{
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 6px;
+}}
+.dim-label {{
+  font-size: 10px; letter-spacing: 2.2px; text-transform: uppercase;
+  color: {MUTE}; font-weight: 700;
+}}
+.grade {{
+  font-size: 28px; font-weight: 800; line-height: 1;
+}}
+.obs {{
+  font-size: 14px; color: {INK}; line-height: 1.45; font-weight: 400;
+  letter-spacing: -0.1px;
+}}
+
 .footer {{
-  margin-top: auto; padding-top: 16px;
-  font-size: 11px; color: #2a2a2a; letter-spacing: 1.5px; text-transform: uppercase;
+  margin-top: 18px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: {MUTE}; font-weight: 600;
 }}
 </style>
 </head><body>
-  <div class="label">CLEAR Report &nbsp;·&nbsp; {company_name}</div>
-  <div class="headline">"{headline}"</div>
-  <div style="display:flex;flex-direction:column;flex:1;">{rows}</div>
-  <div class="footer">C · L · E · A · R &nbsp;|&nbsp; Funded &amp; Found Out by Josh Mait</div>
+  <div class="metabar">
+    <div class="mono">{slide_num:02d} / {total:02d}</div>
+    <div class="meta-mid">Funded &amp; Found Out</div>
+    <div class="mono">{html_lib.escape(week_label)}</div>
+  </div>
+
+  <div class="headline-zone">
+    <div class="headline">{headline}</div>
+    <div class="byline">
+      <strong>{company_name}</strong> &nbsp;·&nbsp; {website_url} &nbsp;·&nbsp; {html_lib.escape(funding_label)}
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="shot-col">
+      <div class="shot-frame-outer">
+        <div class="shot-frame-inner">{screenshot_html}</div>
+      </div>
+      <div class="shot-caption">
+        <div><span class="dot"></span>Homepage · {website_url}</div>
+        <div>Captured {html_lib.escape(week_label)}</div>
+      </div>
+      <div class="body-copy">{paragraph}</div>
+    </div>
+    <div class="grades-col">{rows}</div>
+  </div>
+
+  <div class="footer">
+    <div>C · L · E · A · R</div>
+    <div>By Josh Mait · Pavilion</div>
+  </div>
 </body></html>"""
 
 
@@ -238,36 +378,59 @@ def build_outro_slide() -> str:
 <style>
 {BASE_CSS}
 body {{
+  background: #0a0a0a; color: #ffffff;
   display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  text-align: center; padding: 80px;
+  justify-content: space-between;
+  padding: 80px 80px 64px;
+}}
+.top {{
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: #999; font-weight: 600;
+}}
+.center {{ max-width: 800px; }}
+.kicker {{
+  font-size: 12px; letter-spacing: 3px; text-transform: uppercase;
+  color: #fff; font-weight: 700; margin-bottom: 28px;
 }}
 .title {{
-  font-size: 64px; font-weight: 800; color: #fff;
-  letter-spacing: -2px; line-height: 1.0; margin-bottom: 24px;
+  font-size: 84px; font-weight: 800; color: #fff;
+  line-height: 0.95; letter-spacing: -3px; margin-bottom: 28px;
 }}
-.title em {{ color: #ff6b35; font-style: normal; }}
 .body {{
-  font-size: 18px; color: #666; line-height: 1.65;
-  max-width: 620px; margin-bottom: 48px; font-weight: 300;
+  font-size: 19px; color: #bdbdbd; line-height: 1.55; font-weight: 400;
+  max-width: 620px;
 }}
-.box {{
-  border: 1px solid #1f1f1f; border-radius: 14px;
-  padding: 28px 44px; margin-bottom: 48px;
-  font-size: 16px; color: #888; line-height: 1.7;
+.cta {{
+  margin-top: 36px;
+  border-top: 1px solid #2a2a2a; padding-top: 24px;
+  font-size: 15px; color: #fff; line-height: 1.6; font-weight: 500;
 }}
-.box strong {{ color: #ccc; }}
-.footer {{ font-size: 12px; color: #2a2a2a; letter-spacing: 1px; }}
+.cta strong {{ font-weight: 700; }}
+.byline {{
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #777; font-weight: 600;
+}}
 </style>
 </head><body>
-  <div class="title">That&apos;s a<br><em>wrap.</em></div>
-  <div class="body">Every funded AI company is making a bet. The ones who get marketing right will compound that investment. The ones who don't will struggle to explain why they matter.</div>
-  <div class="box">
-    <strong>Follow for more.</strong><br>
-    Every week: 5 companies, 5 grades, no filter.<br>
-    By Josh Mait &nbsp;·&nbsp; Head of Marketing, Pavilion.
+  <div class="top">
+    <div>Funded &amp; Found Out</div>
+    <div>End of Issue</div>
   </div>
-  <div class="footer">funded-and-found-out &nbsp;·&nbsp; joinpavilion.com</div>
+  <div class="center">
+    <div class="kicker">Closing Note</div>
+    <div class="title">Five companies.<br>Five report cards.</div>
+    <div class="body">Every funded AI company is making a bet. The ones who get marketing right will compound that investment. The ones who don't will struggle to explain why they matter.</div>
+    <div class="cta">
+      <strong>New issue every week.</strong> Five AI companies. Five grades. No filter.<br>
+      Follow Josh Mait · Head of Marketing, Pavilion.
+    </div>
+  </div>
+  <div class="byline">
+    <div>joinpavilion.com</div>
+    <div>Funded &amp; Found Out</div>
+  </div>
 </body></html>"""
 
 
@@ -320,6 +483,56 @@ def combine_to_pdf(slide_paths: list[Path], pdf_path: Path) -> bool:
         return False
 
 
+# ─── PRE-PUBLISH VALIDATION ───────────────────────────────────────────────────
+
+def validate_batch(
+    companies: list[dict],
+    evaluations: list[dict | None],
+    screenshot_paths: list[list[str]],
+) -> tuple[bool, list[str]]:
+    """
+    Verify the batch is publishable. Returns (ok, errors).
+    Checks: no duplicate names, every company has eval + non-empty screenshot,
+    and counts align.
+    """
+    errors: list[str] = []
+
+    if not (len(companies) == len(evaluations) == len(screenshot_paths)):
+        errors.append(
+            f"Count mismatch: {len(companies)} companies, "
+            f"{len(evaluations)} evaluations, {len(screenshot_paths)} screenshot lists"
+        )
+
+    seen_names: dict[str, int] = {}
+    for i, c in enumerate(companies):
+        key = (c.get('company_name') or '').strip().lower()
+        if not key:
+            errors.append(f"[{i}] empty company_name")
+            continue
+        if key in seen_names:
+            errors.append(
+                f"[{i}] duplicate company '{c.get('company_name')}' "
+                f"(also at index {seen_names[key]})"
+            )
+        else:
+            seen_names[key] = i
+
+    for i, (c, ev, shots) in enumerate(zip(companies, evaluations, screenshot_paths)):
+        name = c.get('company_name', f'idx{i}')
+        if ev is None:
+            errors.append(f"[{i}] {name}: missing evaluation")
+        if not shots:
+            errors.append(f"[{i}] {name}: no screenshot path recorded")
+            continue
+        path = shots[0]
+        if not path or not Path(path).exists():
+            errors.append(f"[{i}] {name}: screenshot file missing ({path})")
+        elif Path(path).stat().st_size < 1024:
+            errors.append(f"[{i}] {name}: screenshot file is empty / tiny ({path})")
+
+    return (len(errors) == 0), errors
+
+
 # ─── MAIN ENTRY ────────────────────────────────────────────────────────────────
 
 def generate_carousel(
@@ -332,44 +545,36 @@ def generate_carousel(
     """
     Build the full LinkedIn carousel PDF.
     Returns the PDF path or None on failure.
+    Caller is responsible for running validate_batch() first.
     """
     slides_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    week_label = datetime.now().strftime("Week of %B %d, %Y")
+    week_label = datetime.now().strftime("Week of %b %d, %Y")
     date_str = datetime.now().strftime("%Y-%m-%d")
     pdf_path = output_dir / f"funded-and-found-out-{date_str}.pdf"
 
     all_slide_paths: list[Path] = []
 
-    # 1. Intro
     intro_path = slides_dir / "00_intro.png"
     if render_slide(build_intro_slide(week_label, len(companies)), intro_path):
         all_slide_paths.append(intro_path)
         logger.info("Rendered intro slide")
 
-    # 2. Per-company slides
     for i, (company, evaluation, shots) in enumerate(zip(companies, evaluations, screenshot_paths)):
         if not evaluation:
             logger.warning(f"Skipping {company.get('company_name')} — no evaluation")
             continue
 
-        # Slide A: Overview + 2x2 screenshot grid
-        overview_path = slides_dir / f"{i+1:02d}a_overview.png"
+        company_path = slides_dir / f"{i+1:02d}_company.png"
         if render_slide(
-            build_overview_slide(company, evaluation, shots, i + 1, len(companies)),
-            overview_path,
+            build_company_slide(company, evaluation, shots, i + 1, len(companies), week_label),
+            company_path,
         ):
-            all_slide_paths.append(overview_path)
+            all_slide_paths.append(company_path)
 
-        # Slide B: CLEAR grades
-        grades_path = slides_dir / f"{i+1:02d}b_grades.png"
-        if render_slide(build_grades_slide(company, evaluation), grades_path):
-            all_slide_paths.append(grades_path)
+        logger.info(f"Rendered slide for {company.get('company_name')}")
 
-        logger.info(f"Rendered slides for {company.get('company_name')}")
-
-    # 3. Outro
     outro_path = slides_dir / "99_outro.png"
     if render_slide(build_outro_slide(), outro_path):
         all_slide_paths.append(outro_path)
