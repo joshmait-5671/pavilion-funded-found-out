@@ -21,13 +21,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import anthropic
-from src.discovery.searcher import search_funding_news
+from src.discovery.email_searcher import search_funding_news
 from src.discovery.qualifier import qualify_companies
 from src.analysis.scraper import scrape_website
 from src.analysis.screenshotter import take_screenshots
 from src.analysis.evaluator import evaluate_company
 from src.report.generator import generate_carousel, validate_batch
 from src.tracking.database import Database
+from src.delivery.emailer import send_curation_prompt
+
+MIN_COMPANIES = 5
 
 BASE_DIR = Path(__file__).parent.parent
 
@@ -59,22 +62,22 @@ def main():
     db = Database(BASE_DIR / 'data' / 'tracker.db')
 
     # ── STEP 1: DISCOVERY ────────────────────────────────────────────
-    print("\n🔍 Step 1: Searching for funding announcements...")
-    raw_results = search_funding_news(max_results_per_query=8)
+    print("\n🔍 Step 1: Scanning Gmail accounts for funding announcements...")
+    raw_results = search_funding_news(max_results_per_query=50, days=7)
 
     if not raw_results:
-        logger.error("No search results returned. Check network / DuckDuckGo availability.")
+        logger.error(
+            "No newsletters captured. Check that auth/token-*.json files exist "
+            "and were authorized with gmail.readonly scope. Run: "
+            "python scripts/auth_gmail.py <label>"
+        )
         sys.exit(1)
 
-    print(f"   Found {len(raw_results)} raw articles")
+    print(f"   Found {len(raw_results)} newsletter messages across all accounts")
 
     # ── STEP 2: QUALIFY ──────────────────────────────────────────────
     print("\n🤖 Step 2: Qualifying companies with Claude...")
     qualified = qualify_companies(raw_results, client)
-
-    if not qualified:
-        logger.error("Claude returned 0 qualified companies. Try running again or adjusting search queries.")
-        sys.exit(1)
 
     print(f"   Qualified: {len(qualified)} companies")
 
@@ -82,9 +85,34 @@ def main():
     fresh = [c for c in qualified if not db.is_recently_covered(c['company_name'])]
     print(f"   After dedup (last 6 weeks): {len(fresh)} fresh companies")
 
-    companies = fresh[:5]
-    if len(companies) < 2:
-        logger.warning(f"Only {len(companies)} fresh companies. Proceeding anyway.")
+    # Floor: under MIN_COMPANIES, send curation prompt instead of generating PDF
+    if len(fresh) < MIN_COMPANIES:
+        print(f"\n⚠️  Only {len(fresh)} qualified — below the {MIN_COMPANIES}-company floor.")
+        print("   Sending curation-prompt email and exiting without generating a PDF.")
+        to_email = os.environ.get('TO_EMAIL', 'josh.mait@gmail.com')
+        from_email = os.environ.get('FROM_EMAIL', 'josh.mait@gmail.com')
+        send_curation_prompt(
+            auth_dir=BASE_DIR / 'auth',
+            to_email=to_email,
+            from_email=from_email,
+            candidates=fresh,
+            minimum=MIN_COMPANIES,
+        )
+        # Save what we found so manual curation has a starting point
+        episode_dir = BASE_DIR / 'data' / 'episodes'
+        episode_dir.mkdir(parents=True, exist_ok=True)
+        starter_path = episode_dir / f"{run_date}.json"
+        import json as _json
+        with open(starter_path, 'w') as _f:
+            _json.dump({
+                'run_date': run_date,
+                '_note': 'Auto-generated starter — only N candidates were found. Edit and add more, then re-run scripts/render_episode.py against this file.',
+                'companies': fresh,
+            }, _f, indent=2)
+        print(f"   📝 Starter episode JSON: {starter_path}")
+        sys.exit(0)
+
+    companies = fresh[:MIN_COMPANIES]
 
     print(f"\n   Selected: {', '.join(c['company_name'] for c in companies)}\n")
 

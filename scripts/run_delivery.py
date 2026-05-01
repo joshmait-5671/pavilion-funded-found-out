@@ -36,7 +36,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 def main():
     to_email = os.environ.get('TO_EMAIL', 'josh.mait@gmail.com')
-    from_email = os.environ.get('FROM_EMAIL', 'josh.mait@joinpavilion.com')
+    from_email = os.environ.get('FROM_EMAIL', 'josh.mait@gmail.com')
     auth_dir = BASE_DIR / 'auth'
 
     if not (auth_dir / 'client_secrets.json').exists():

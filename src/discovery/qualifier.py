@@ -16,34 +16,36 @@ def qualify_companies(search_results: list[dict], client: anthropic.Anthropic) -
         return []
 
     results_text = "\n\n".join([
-        f"[{i+1}] Title: {r['title']}\nURL: {r['url']}\nSnippet: {r['snippet']}"
+        f"[{i+1}] From: {r.get('sender','')}\nReceived: {r.get('received','')}\n"
+        f"Subject: {r['title']}\nLink: {r['url']}\n---\n{r['snippet']}"
         for i, r in enumerate(search_results[:40])
     ])
 
-    prompt = f"""You are filtering news search results to find AI/tech startup funding announcements.
+    prompt = f"""You are extracting AI/tech startup funding announcements from a batch of newsletter emails and news articles.
 
-SEARCH RESULTS:
+INPUT (each entry is one email/article — a single email may mention many funding rounds):
 {results_text}
 
 YOUR TASK:
-Identify results that describe a tech or AI startup receiving VC or PE funding.
+Find every distinct AI/tech startup funding announcement mentioned in the input. For each one, extract a structured record. The same company may be mentioned in multiple emails — return only one record per company.
 
-QUALIFICATION CRITERIA:
-- Company type: tech startup, AI company, SaaS, software product — NOT a fund raising LP capital, NOT a non-profit, NOT a physical goods company
-- Funding range: between $5M and $40M (skip if unclear or outside this range)
-- Funding type: VC or PE backed — Series Seed, Series A, Series B qualify; debt financing and grants do not
-- Must be a real company building a product or platform
+QUALIFICATION CRITERIA (strict):
+- Company type: AI / software / SaaS company building a digital product. The product must be primarily AI- or software-driven. SKIP: biotech, pharma, life sciences, medical devices, hardware-only, robotics-only, real estate, consumer goods, fintech without an AI core, defense, energy, climate-tech without AI. If you're unsure whether it's "AI/tech enough," skip it.
+- Funding range: $5M to $300M. Skip if amount unclear or outside this range.
+- Funding type: VC/PE/strategic equity round — seed, Series A, Series B, Series C, Series D qualify. Skip debt financing, grants, IPO, secondary tenders, ICOs, fund announcements (a VC firm raising a fund is NOT a portfolio company funding round).
+- Recency: must be a NEW round announced in the past 14 days. Skip retrospective mentions of older rounds.
+- Real company building an actual product or platform with a real homepage.
 
 For each qualified company, extract:
 - company_name: The startup's name (string)
 - funding_amount: Amount in millions as a number (e.g. 12.5)
-- funding_stage: "seed", "series_a", "series_b", or "other"
-- website_url: Their company homepage (infer from company name if not stated — e.g. "Acme AI" → "https://acmeai.com")
+- funding_stage: "seed", "series_a", "series_b", "series_c", or "other"
+- website_url: Their homepage. If not stated, infer (e.g. "Acme AI" → "https://acme.ai" or "https://acmeai.com")
 - description: 1-2 sentences on what the company does and who their customer is
-- news_url: The article URL
+- news_url: The most relevant article/email link from the input
 
 Return a JSON array only — no other text, no markdown fences.
-Return max 10 results. Prioritize cases where funding amount is clear and the company's product is clear.
+Return max 12 results, ranked by recency and clarity of funding details.
 If no results qualify, return []."""
 
     response = client.messages.create(

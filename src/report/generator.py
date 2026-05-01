@@ -373,7 +373,7 @@ body {{ display: flex; flex-direction: column; padding: 44px 56px 36px; }}
 </body></html>"""
 
 
-def build_outro_slide() -> str:
+def build_outro_slide(company_count: int = 5) -> str:
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
 {BASE_CSS}
@@ -420,10 +420,10 @@ body {{
   </div>
   <div class="center">
     <div class="kicker">Closing Note</div>
-    <div class="title">Five companies.<br>Five report cards.</div>
+    <div class="title">{company_count} {('company' if company_count == 1 else 'companies')}.<br>{company_count} {('report card' if company_count == 1 else 'report cards')}.</div>
     <div class="body">Every funded AI company is making a bet. The ones who get marketing right will compound that investment. The ones who don't will struggle to explain why they matter.</div>
     <div class="cta">
-      <strong>New issue every week.</strong> Five AI companies. Five grades. No filter.<br>
+      <strong>New issue every week.</strong> Real funding. Real grades. No filter.<br>
       Follow Josh Mait · Head of Marketing, Pavilion.
     </div>
   </div>
@@ -576,7 +576,7 @@ def generate_carousel(
         logger.info(f"Rendered slide for {company.get('company_name')}")
 
     outro_path = slides_dir / "99_outro.png"
-    if render_slide(build_outro_slide(), outro_path):
+    if render_slide(build_outro_slide(len(companies)), outro_path):
         all_slide_paths.append(outro_path)
         logger.info("Rendered outro slide")
 
