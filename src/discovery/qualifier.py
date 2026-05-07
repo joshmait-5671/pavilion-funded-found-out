@@ -60,8 +60,38 @@ If no results qualify, return []."""
             if text.startswith('json'):
                 text = text[4:]
         companies = json.loads(text)
-        logger.info(f"Qualifier: {len(companies)} companies qualified from {len(search_results)} results")
-        return companies
+        deduped = _dedupe_companies(companies)
+        if len(deduped) < len(companies):
+            logger.info(f"Qualifier: collapsed {len(companies) - len(deduped)} duplicate(s) within batch")
+        logger.info(f"Qualifier: {len(deduped)} companies qualified from {len(search_results)} results")
+        return deduped
     except Exception as e:
         logger.error(f"Failed to parse qualifier response: {e}\nRaw: {response.content[0].text[:300]}")
         return []
+
+
+def _normalize_name(name: str) -> str:
+    """Normalize company name for dedupe — lowercase, strip suffixes/punctuation."""
+    n = (name or "").lower().strip()
+    for suffix in [' inc.', ' inc', ' llc', ' ltd', ' ltd.', ' co.', ' co', ' ai', '.ai', '.com']:
+        if n.endswith(suffix):
+            n = n[:-len(suffix)].strip()
+    return ''.join(c for c in n if c.isalnum())
+
+
+def _dedupe_companies(companies: list[dict]) -> list[dict]:
+    """Collapse duplicate companies within a single batch — first occurrence wins."""
+    seen = set()
+    out = []
+    for c in companies:
+        key = _normalize_name(c.get('company_name', ''))
+        url_key = (c.get('website_url') or '').lower().rstrip('/')
+        if not key:
+            continue
+        if key in seen or (url_key and url_key in seen):
+            continue
+        seen.add(key)
+        if url_key:
+            seen.add(url_key)
+        out.append(c)
+    return out

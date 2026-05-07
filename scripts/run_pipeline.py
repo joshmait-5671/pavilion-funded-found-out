@@ -8,6 +8,7 @@ Run this on Monday. Delivery (email) is handled separately by run_delivery.py.
 Usage:
     python scripts/run_pipeline.py
 """
+import json
 import sys
 import logging
 import os
@@ -25,7 +26,7 @@ from src.discovery.qualifier import qualify_companies
 from src.analysis.scraper import scrape_website
 from src.analysis.screenshotter import take_screenshots
 from src.analysis.evaluator import evaluate_company
-from src.report.generator import generate_carousel
+from src.report.generator import generate_carousel, validate_batch
 from src.tracking.database import Database
 
 BASE_DIR = Path(__file__).parent.parent
@@ -135,6 +136,29 @@ def main():
         sys.exit(1)
 
     companies, evaluations, all_screenshots = map(list, zip(*valid))
+
+    # ── STEP 3.5: CHECKPOINT (so we can re-render without re-running the LLM) ─
+    checkpoint_dir = BASE_DIR / 'data' / 'checkpoints'
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = checkpoint_dir / f"{run_date}.json"
+    with open(checkpoint_path, 'w') as f:
+        json.dump({
+            'run_date': run_date,
+            'companies': companies,
+            'evaluations': evaluations,
+            'screenshot_paths': all_screenshots,
+        }, f, indent=2)
+    print(f"   📌 Checkpoint saved: {checkpoint_path}")
+
+    # ── STEP 3.6: VALIDATE BATCH ─────────────────────────────────────
+    ok, errors = validate_batch(companies, evaluations, all_screenshots)
+    if not ok:
+        print("\n❌ Batch validation failed — refusing to publish:")
+        for e in errors:
+            print(f"   · {e}")
+        logger.error(f"Validation failed with {len(errors)} error(s); see above")
+        sys.exit(1)
+    print(f"   ✓ Batch validated ({len(companies)} companies, no dupes, all screenshots present)")
 
     # ── STEP 4: GENERATE PDF ─────────────────────────────────────────
     print(f"\n📄 Step 4: Generating PDF carousel ({len(companies)} companies)...")
