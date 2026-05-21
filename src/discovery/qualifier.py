@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 def qualify_companies(search_results: list[dict], client: anthropic.Anthropic) -> list[dict]:
     """
     Pass raw search results to Claude for qualification.
-    Returns list of dicts: company_name, funding_amount, funding_stage,
-    website_url, description, news_url.
+    Returns list of dicts: company_name, news_hook, website_url, description, news_url.
     """
     if not search_results:
         return []
@@ -21,35 +20,34 @@ def qualify_companies(search_results: list[dict], client: anthropic.Anthropic) -
         for i, r in enumerate(search_results[:40])
     ])
 
-    prompt = f"""You are extracting AI/tech startup funding announcements from a batch of newsletter emails and news articles.
+    prompt = f"""You are extracting AI/software companies that are getting attention in this week's news cycle, from a batch of newsletter emails and articles.
 
-INPUT (each entry is one email/article — a single email may mention many funding rounds):
+INPUT (each entry is one email/article — a single email may mention many companies):
 {results_text}
 
 YOUR TASK:
-Find every distinct AI/tech startup funding announcement mentioned in the input. For each one, extract a structured record. The same company may be mentioned in multiple emails — return only one record per company.
+Find every distinct AI/software company mentioned in a substantive way in the input. For each one, extract a structured record. The same company may be mentioned in multiple emails — return only one record per company, picking the most newsworthy hook.
 
-QUALIFICATION CRITERIA (strict):
-- Company type: AI / software / SaaS company building a digital product. The product must be primarily AI- or software-driven. SKIP: biotech, pharma, life sciences, medical devices, hardware-only, robotics-only, real estate, consumer goods, fintech without an AI core, defense, energy, climate-tech without AI. If you're unsure whether it's "AI/tech enough," skip it.
-- Funding range: $5M to $300M. Skip if amount unclear or outside this range.
-- Funding type: VC/PE/strategic equity round — seed, Series A, Series B, Series C, Series D qualify. Skip debt financing, grants, IPO, secondary tenders, ICOs, fund announcements (a VC firm raising a fund is NOT a portfolio company funding round).
-- Recency: must be a NEW round announced in the past 14 days. Skip retrospective mentions of older rounds.
-- Real company building an actual product or platform with a real homepage.
+QUALIFICATION CRITERIA:
+- Company type: AI / software / SaaS company building a digital product. The product must be primarily AI- or software-driven. SKIP: pure hardware (no software story), biotech with no AI angle, life sciences, real estate, energy without AI, defense, consumer-goods physical products, financial services without AI, generic media properties.
+- Substantive mention: the company is the subject of the news, not a passing reference. Skip "X uses Y's API" type asides unless Y is itself the story. Skip articles that just list 30 companies in a paragraph.
+- Real company with a real homepage. SKIP: fictional examples, anonymous "a startup", VC firms talking about themselves (a VC firm is not the news subject — its portfolio company is).
+- Newsworthy this week: it's in the news because something happened — a launch, a controversy, a layoff, a deal, a rebrand, a stat, a debate, a fundraise, a quote, a product update. The thing that happened is the "news_hook".
+- No size filter. Anthropic at $900B and a 5-person seed startup both qualify if they're in the news.
 
 For each qualified company, extract:
-- company_name: The startup's name (string)
-- funding_amount: Amount in millions as a number (e.g. 12.5)
-- funding_stage: "seed", "series_a", "series_b", "series_c", or "other"
+- company_name: The company's name (string)
+- news_hook: 4-10 words describing why they're in the news this week (e.g. "$900B fundraising round", "AI-driven RIF announcement", "MS 365 integration launch", "Claude API hits new model SOTA")
 - website_url: Their homepage. If not stated, infer (e.g. "Acme AI" → "https://acme.ai" or "https://acmeai.com")
 - description: 1-2 sentences on what the company does and who their customer is
 - news_url: The most relevant article/email link from the input
 
 Return a JSON array only — no other text, no markdown fences.
-Return max 12 results, ranked by recency and clarity of funding details.
+Return max 12 results, ranked by newsworthiness + clarity of the hook.
 If no results qualify, return []."""
 
     response = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-opus-4-7",
         max_tokens=3000,
         messages=[{"role": "user", "content": prompt}]
     )

@@ -42,7 +42,7 @@ def evaluate_company(company: dict, website_content: dict, client: anthropic.Ant
     """
     content_block = f"""
 Company: {company['company_name']}
-Funding: ${company.get('funding_amount', '?')}M — {company.get('funding_stage', '').replace('_', ' ').title()}
+In the news because: {company.get('news_hook', 'N/A')}
 Known description: {company.get('description', 'N/A')}
 
 Website: {website_content.get('url', '')}
@@ -54,8 +54,8 @@ Full page text:
 {website_content.get('full_text', '')[:5000]}
 """
 
-    prompt = f"""You are a senior brand critic in the Michael Bierut / Pentagram tradition, writing for a weekly LinkedIn carousel called "Funded & Found Out."
-Your job: look at a newly funded AI company's homepage and grade their marketing on five dimensions.
+    prompt = f"""You are a senior brand critic in the Michael Bierut / Pentagram tradition, writing for a weekly LinkedIn carousel called "Hyped & Found Out."
+Your job: look at an AI company that's in this week's news and grade their marketing on five dimensions.
 Voice: observational, plain-spoken, slightly critical but never cruel. Write the way a senior designer at a leading NYC firm talks at lunch — confident, specific, restrained. No jargon. No address to the reader. No "you should." No "this company should." Just observations.
 
 {CLEAR_FRAMEWORK}
@@ -72,7 +72,7 @@ Evaluate this company on all 5 CLEAR dimensions. For each:
 
 Also write:
 - headline: A punchy 8-14 word sentence summarizing your overall take. Declarative. Not a question. Not a setup-and-reveal.
-- overall_paragraph: 3-4 sentences. Start with what the company does + funding. Then the honest marketing read. Same voice as the grades. No "you." No address to anyone.
+- overall_paragraph: 3-4 sentences. Start with what the company does + why they're in the news this week. Then the honest marketing read. Same voice as the grades. No "you." No address to anyone.
 
 BANNED PATTERNS (do not use any of these):
 - "Not X. Not Y. The Z." constructions
@@ -96,7 +96,7 @@ Return ONLY valid JSON in this exact structure — no markdown, no extra text:
 }}"""
 
     response = client.messages.create(
-        model="claude-opus-4-5",
+        model="claude-opus-4-7",
         max_tokens=2500,
         messages=[{"role": "user", "content": prompt}]
     )

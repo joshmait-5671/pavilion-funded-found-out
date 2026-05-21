@@ -58,7 +58,7 @@ def main():
 
     print(f"Opening browser. Choose the Google account for '{label}'.")
     flow = InstalledAppFlow.from_client_secrets_file(str(secrets_path), SCOPES)
-    creds = flow.run_local_server(port=0)
+    creds = flow.run_local_server(port=0, prompt='select_account')
 
     with open(str(token_path), 'w') as f:
         f.write(creds.to_json())

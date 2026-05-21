@@ -124,7 +124,7 @@ def send_curation_prompt(
             for c in candidates:
                 lines.append(
                     f"  · {c.get('company_name','?')} — "
-                    f"${c.get('funding_amount','?')}M {c.get('funding_stage','')} — "
+                    f"{c.get('news_hook','?')} — "
                     f"{c.get('website_url','')}"
                 )
                 if c.get('description'):

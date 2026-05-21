@@ -181,13 +181,13 @@ body {{
 </style>
 </head><body>
   <div class="top">
-    <div>Funded &amp; Found Out</div>
+    <div>Hyped &amp; Found Out</div>
     <div>{week_label}</div>
   </div>
   <div class="center">
     <div class="kicker">Weekly AI Marketing Report</div>
-    <div class="title">Funded.<br>And found out.</div>
-    <div class="subtitle">{company_count} newly funded AI {company_word}, graded on their marketing.</div>
+    <div class="title">Hyped.<br>And found out.</div>
+    <div class="subtitle">{company_count} AI {company_word} in this week's news, graded on their marketing.</div>
     <div class="framework">
       <div class="dim"><div class="letter">C</div><div class="name">Centricity</div></div>
       <div class="dim"><div class="letter">L</div><div class="name">Legibility</div></div>
@@ -213,8 +213,7 @@ def build_company_slide(
 ) -> str:
     company_name = html_lib.escape(company.get('company_name', ''))
     website_url = html_lib.escape((company.get('website_url') or '').replace('https://', '').replace('http://', '').rstrip('/'))
-    stage = (company.get('funding_stage') or '').replace('_', ' ').upper()
-    funding_label = f"${company.get('funding_amount', '?')}M · {stage}".strip(' ·')
+    news_hook = (company.get('news_hook') or '').strip()
     headline = html_lib.escape(evaluation.get('headline', '') or '')
     paragraph = html_lib.escape(evaluation.get('overall_paragraph', '') or '')
     if len(paragraph) > 360:
@@ -341,14 +340,14 @@ body {{ display: flex; flex-direction: column; padding: 44px 56px 36px; }}
 </head><body>
   <div class="metabar">
     <div class="mono">{slide_num:02d} / {total:02d}</div>
-    <div class="meta-mid">Funded &amp; Found Out</div>
+    <div class="meta-mid">Hyped &amp; Found Out</div>
     <div class="mono">{html_lib.escape(week_label)}</div>
   </div>
 
   <div class="headline-zone">
     <div class="headline">{headline}</div>
     <div class="byline">
-      <strong>{company_name}</strong> &nbsp;·&nbsp; {website_url} &nbsp;·&nbsp; {html_lib.escape(funding_label)}
+      <strong>{company_name}</strong> &nbsp;·&nbsp; {website_url} &nbsp;·&nbsp; {html_lib.escape(news_hook)}
     </div>
   </div>
 
@@ -415,13 +414,13 @@ body {{
 </style>
 </head><body>
   <div class="top">
-    <div>Funded &amp; Found Out</div>
+    <div>Hyped &amp; Found Out</div>
     <div>End of Issue</div>
   </div>
   <div class="center">
     <div class="kicker">Closing Note</div>
     <div class="title">{company_count} {('company' if company_count == 1 else 'companies')}.<br>{company_count} {('report card' if company_count == 1 else 'report cards')}.</div>
-    <div class="body">Every funded AI company is making a bet. The ones who get marketing right will compound that investment. The ones who don't will struggle to explain why they matter.</div>
+    <div class="body">Every AI company in the news is making a bet for attention. The ones who get marketing right turn the moment into momentum. The ones who don't will spend the rest of the year explaining why they matter.</div>
     <div class="cta">
       <strong>New issue every week.</strong> Real funding. Real grades. No filter.<br>
       Follow Josh Mait · Head of Marketing, Pavilion.
@@ -429,7 +428,7 @@ body {{
   </div>
   <div class="byline">
     <div>joinpavilion.com</div>
-    <div>Funded &amp; Found Out</div>
+    <div>Hyped &amp; Found Out</div>
   </div>
 </body></html>"""
 
