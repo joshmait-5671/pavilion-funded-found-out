@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.pavilion.hyped-delivery</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/.venv/bin/python</string>
+        <string>/Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/scripts/run_delivery.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>3</integer>
+        <key>Hour</key>
+        <integer>17</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/logs/launchd-delivery.out.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/logs/launchd-delivery.err.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/Users/joshmait</string>
+    </dict>
+</dict>
+</plist>
