@@ -51,7 +51,29 @@ def main():
         sys.exit(1)
 
     latest_pdf = pdfs[0]
-    print(f"📎 Sending: {latest_pdf.name}")
+
+    # Freshness guard — never re-send a stale PDF.
+    # A healthy cadence renders Monday and delivers Wednesday (~2 days).
+    # If the newest PDF is older than MAX_AGE_DAYS, the pipeline silently
+    # failed to produce a new one; refuse to send rather than re-mail an old file.
+    MAX_AGE_DAYS = 5
+    from datetime import datetime, timezone
+    try:
+        pdf_date = datetime.strptime(
+            latest_pdf.stem.replace('funded-and-found-out-', ''), '%Y-%m-%d'
+        ).date()
+        age_days = (datetime.now().date() - pdf_date).days
+    except ValueError:
+        # Filename didn't carry a parseable date — fall back to file mtime.
+        age_days = (datetime.now() - datetime.fromtimestamp(latest_pdf.stat().st_mtime)).days
+
+    if age_days > MAX_AGE_DAYS:
+        print(f"❌ Newest PDF is {age_days} days old ({latest_pdf.name}).")
+        print(f"   Pipeline likely failed to produce a fresh issue — refusing to send a stale report.")
+        logger.error(f"Stale PDF guard tripped: {latest_pdf.name} is {age_days} days old (>{MAX_AGE_DAYS}). Not sending.")
+        sys.exit(1)
+
+    print(f"📎 Sending: {latest_pdf.name} ({age_days}d old)")
 
     # Get company names from DB for email body
     db = Database(BASE_DIR / 'data' / 'tracker.db')

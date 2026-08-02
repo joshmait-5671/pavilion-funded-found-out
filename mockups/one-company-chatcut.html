@@ -1,0 +1,212 @@
+<meta charset="utf-8">
+<title>The Read — ChatCut</title>
+<style>
+  @page { size: 720px 720px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink:#0f172a; --mute:#64748b; --line:#e5e7eb; --accent:#6d28d9;
+          --A:#2a8a4a; --B:#2b6cb0; --C:#c47f17; --D:#c0392b; }
+  html,body { background:#333; }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; -webkit-font-smoothing:antialiased; }
+  .slide { width:720px; height:720px; position:relative; overflow:hidden; page-break-after:always; }
+  @media screen { body{padding:24px; display:flex; flex-direction:column; gap:20px; align-items:center;} .slide{box-shadow:0 8px 40px rgba(0,0,0,.4);} }
+
+  .light { background:#fff; color:var(--ink); }
+  .dark  { background:#0a0a0a; color:#fff; }
+  .pad { padding:46px 52px; height:100%; display:flex; flex-direction:column; }
+  .top { display:flex; justify-content:space-between; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--mute); font-weight:600; }
+  .dark .top { color:#8a8a8a; }
+  .foot { display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--mute); font-weight:600; margin-top:auto; }
+  .grow { flex:1; }
+
+  /* cover */
+  .kicker { font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:#a78bfa; font-weight:700; margin-bottom:20px; }
+  .hook { font-size:38px; line-height:1.09; font-weight:800; letter-spacing:-.02em; }
+  .sub { font-size:16px; line-height:1.5; color:#cbd5e1; margin-top:15px; font-weight:500; }
+  .cshot { margin-top:22px; border:1px solid #1f2937; border-radius:8px; overflow:hidden; height:236px; background:#111; }
+  .cshot img { width:100%; height:100%; object-fit:cover; object-position:top; }
+  .clearrow { display:flex; gap:26px; margin-top:20px; }
+  .clearrow div { font-size:20px; font-weight:800; color:#fff; }
+  .clearrow span { display:block; font-size:8.5px; letter-spacing:.12em; color:#8a8a8a; font-weight:600; margin-top:4px; }
+
+  /* dimension card */
+  .band { position:relative; width:100%; height:210px; border-radius:8px; overflow:hidden; border:1px solid var(--line); margin-top:14px; }
+  .band img { width:100%; height:100%; object-fit:cover; object-position:top; }
+  .badge { position:absolute; z-index:4; top:12px; right:12px; width:62px; height:62px; border-radius:11px; background:#fff;
+           display:flex; align-items:center; justify-content:center; font-size:42px; font-weight:800; line-height:1;
+           box-shadow:0 6px 18px rgba(0,0,0,.22); }
+  /* spotlight the element that earned the grade; dim the rest of the page */
+  .ring { position:absolute; z-index:2; border:2px solid #fff; border-radius:10px;
+          box-shadow:0 0 0 3px var(--accent), 0 0 0 9999px rgba(9,11,22,.58); }
+  .anno { position:absolute; z-index:3; background:var(--accent); color:#fff; font-size:12.5px; font-weight:700;
+          padding:6px 11px; border-radius:7px; box-shadow:0 6px 16px rgba(0,0,0,.3); white-space:nowrap; }
+  .namerow { margin-top:18px; }
+  .dimname { font-size:13px; letter-spacing:.2em; text-transform:uppercase; color:var(--mute); font-weight:700; }
+  .dimdef { font-size:17px; color:var(--accent); font-weight:700; margin-top:7px; line-height:1.3; letter-spacing:-.01em; }
+  .rule { height:1px; background:var(--line); margin:16px 0 14px; }
+  .label { font-size:10.5px; letter-spacing:.18em; text-transform:uppercase; font-weight:700; color:var(--mute); margin-bottom:7px; }
+  .read { font-size:18px; line-height:1.32; font-weight:600; letter-spacing:-.01em; }
+  .fixbox { margin-top:16px; border-left:3px solid var(--accent); padding-left:16px; }
+  .fix { font-size:16.5px; line-height:1.38; font-weight:600; color:var(--ink); }
+
+  /* close */
+  .synth { font-size:26px; line-height:1.32; font-weight:700; letter-spacing:-.01em; }
+  .cta { margin-top:auto; }
+  .ctaline { font-size:15px; color:#cbd5e1; font-weight:500; line-height:1.5; }
+  .ctaurl { font-size:22px; font-weight:800; color:#a78bfa; margin-top:10px; letter-spacing:-.01em; }
+</style>
+
+<!-- 1 · COVER -->
+<div class="slide dark">
+  <div class="pad">
+    <div class="top"><span>100 Yards · The Read</span><span>Seed–Series A</span></div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="kicker">Antler-backed · Prompt-driven video editing</div>
+      <div class="hook">Two filmmakers built ChatCut. The homepage reads like a spec sheet.</div>
+      <div class="sub">A clever editor, hiding the craft that made it. Five ways the marketing wins or loses — the CLEAR read.</div>
+      <div class="cshot"><img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/chatcut_hero.png"></div>
+    </div>
+    <div class="clearrow">
+      <div>C<span>CENTRICITY</span></div><div>L<span>LEGIBILITY</span></div><div>E<span>EDGE</span></div><div>A<span>ARGUMENT</span></div><div>R<span>RECALL</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 · CENTRICITY C -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>01 / 05 · Centricity</span><span>ChatCut</span></div>
+    <div class="band">
+      <img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/chatcut_hero.png">
+      <div class="ring" style="top:33%;left:20%;width:60%;height:27%"></div>
+      <div class="anno" style="top:63%;left:31%">all product, no customer</div>
+      <div class="badge" style="color:var(--C)">C</div>
+    </div>
+    <div class="namerow">
+      <div class="dimname">Centricity</div>
+      <div class="dimdef">Is the page about the customer — or the company?</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">"Tell it what you want and it figures out how" gestures at the user, but the page mostly narrates features.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Open on the creator's problem. "You shot two hours. You need two minutes. Just say so."</div>
+    </div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 3 · LEGIBILITY B -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>02 / 05 · Legibility</span><span>ChatCut</span></div>
+    <div class="band">
+      <img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/chatcut_hero.png">
+      <div class="ring" style="top:60%;left:13%;width:74%;height:14%"></div>
+      <div class="anno" style="top:44%;left:24%">clear line, then clutter</div>
+      <div class="badge" style="color:var(--B)">B</div>
+    </div>
+    <div class="namerow">
+      <div class="dimname">Legibility</div>
+      <div class="dimdef">Can a stranger tell what you do, and who for?</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">"Text-based editing for your talking-head content" is concrete. The other seven hero headings dilute it.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Keep the one line that lands and cut the rest. One promise beats eight.</div>
+    </div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 4 · EDGE C -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>03 / 05 · Edge</span><span>ChatCut</span></div>
+    <div class="band">
+      <img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/chatcut_hero.png">
+      <div class="ring" style="top:75%;left:24%;width:52%;height:17%"></div>
+      <div class="anno" style="top:57%;left:29%">why you, not Descript?</div>
+      <div class="badge" style="color:var(--C)">C</div>
+    </div>
+    <div class="namerow">
+      <div class="dimname">Edge</div>
+      <div class="dimdef">Do you say why you — not the alternative?</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">Living inside ChatGPT and Claude is interesting. The page never says why that beats Descript or CapCut.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Name the rival and win. "The only editor that lives where you already write."</div>
+    </div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 5 · ARGUMENT D -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>04 / 05 · Argument</span><span>ChatCut</span></div>
+    <div class="band">
+      <img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/chatcut_hero.png">
+      <div class="ring" style="top:32%;left:19%;width:62%;height:42%"></div>
+      <div class="anno" style="top:78%;left:30%">no filmmakers anywhere</div>
+      <div class="badge" style="color:var(--D)">D</div>
+    </div>
+    <div class="namerow">
+      <div class="dimname">Argument</div>
+      <div class="dimdef">A point of view — or just a feature list?</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">Two filmmakers built this, and it shows nowhere. No thesis about editing, creators, or craft.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Put the filmmakers on the page. Two editors who got sick of the timeline have a point of view. That's the story.</div>
+    </div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 6 · RECALL C -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>05 / 05 · Recall</span><span>ChatCut</span></div>
+    <div class="band">
+      <img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/chatcut_hero.png">
+      <div class="ring" style="top:6%;left:6%;width:20%;height:20%"></div>
+      <div class="anno" style="top:34%;left:8%">generic wordmark</div>
+      <div class="badge" style="color:var(--C)">C</div>
+    </div>
+    <div class="namerow">
+      <div class="dimname">Recall</div>
+      <div class="dimdef">Will anyone remember you tomorrow?</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">"ChatCut" is descriptive to the point of disappearing, and the identity is competent stock SaaS.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">The name works. Give it a look a filmmaker would recognize as one of their own.</div>
+    </div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 7 · CLOSE / CTA -->
+<div class="slide dark">
+  <div class="pad">
+    <div class="top"><span>100 Yards · The Read</span><span>ChatCut</span></div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="kicker">The through-line</div>
+      <div class="synth">Two filmmakers built a genuinely clever editor, then described it like a spec sheet. The craft that made it is nowhere on the page. And the craft is the pitch.</div>
+    </div>
+    <div class="cta">
+      <div class="ctaline">This is a 60-second read from the 100 Yards brand engine. Want one on your site?</div>
+      <div class="ctaurl">100yards-readout.netlify.app</div>
+    </div>
+  </div>
+</div>

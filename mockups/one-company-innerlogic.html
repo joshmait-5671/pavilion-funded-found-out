@@ -1,0 +1,182 @@
+<meta charset="utf-8">
+<title>The Read — Inner Logic</title>
+<style>
+  @page { size: 720px 720px; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink:#0f172a; --mute:#64748b; --line:#e5e7eb; --accent:#0f766e;
+          --A:#2a8a4a; --B:#2b6cb0; --C:#c47f17; --D:#c0392b; }
+  html,body { background:#333; }
+  body { font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; -webkit-font-smoothing:antialiased; }
+  .slide { width:720px; height:720px; position:relative; overflow:hidden; page-break-after:always; }
+  /* screen-only stacking so Josh can scroll the mockup */
+  @media screen { body{padding:24px; display:flex; flex-direction:column; gap:20px; align-items:center;} .slide{box-shadow:0 8px 40px rgba(0,0,0,.4);} }
+
+  .light { background:#fff; color:var(--ink); }
+  .dark  { background:#0a0a0a; color:#fff; }
+
+  .pad { padding:54px 58px; height:100%; display:flex; flex-direction:column; }
+  .top { display:flex; justify-content:space-between; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--mute); font-weight:600; }
+  .dark .top { color:#8a8a8a; }
+  .foot { display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--mute); font-weight:600; }
+  .dark .foot { color:#8a8a8a; }
+  .grow { flex:1; }
+
+  /* cover */
+  .kicker { font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:22px; }
+  .dark .kicker { color:#5eead4; }
+  .hook { font-size:40px; line-height:1.08; font-weight:800; letter-spacing:-.02em; }
+  .sub { font-size:16px; line-height:1.5; color:#cbd5e1; margin-top:16px; font-weight:500; }
+  .shot { margin-top:26px; border:1px solid #1f2937; border-radius:6px; overflow:hidden; height:250px; background:#111; }
+  .shot img { width:100%; height:100%; object-fit:cover; object-position:top; }
+  .clearrow { display:flex; gap:30px; margin-top:22px; }
+  .clearrow div { font-size:22px; font-weight:800; color:#fff; }
+  .clearrow span { display:block; font-size:9px; letter-spacing:.14em; color:#8a8a8a; font-weight:600; margin-top:4px; }
+
+  /* dimension slides */
+  .dimhead { display:flex; align-items:baseline; justify-content:space-between; }
+  .dimname { font-size:13px; letter-spacing:.2em; text-transform:uppercase; color:var(--mute); font-weight:700; }
+  .grade { font-size:120px; font-weight:800; line-height:.9; letter-spacing:-.03em; }
+  .num { font-size:13px; color:var(--accent); font-weight:700; letter-spacing:.1em; }
+  .label { font-size:11px; letter-spacing:.18em; text-transform:uppercase; font-weight:700; color:var(--mute); margin-bottom:10px; }
+  .read { font-size:22px; line-height:1.34; font-weight:600; letter-spacing:-.01em; }
+  .fixbox { margin-top:30px; border-left:3px solid var(--accent); padding-left:20px; }
+  .fix { font-size:19px; line-height:1.4; font-weight:600; color:var(--ink); }
+  .rule { height:1px; background:var(--line); margin:26px 0; }
+
+  /* close */
+  .synth { font-size:26px; line-height:1.32; font-weight:700; letter-spacing:-.01em; }
+  .cta { margin-top:auto; }
+  .ctaline { font-size:15px; color:#cbd5e1; font-weight:500; line-height:1.5; }
+  .ctaurl { font-size:22px; font-weight:800; color:#5eead4; margin-top:10px; letter-spacing:-.01em; }
+</style>
+
+<!-- 1 · COVER -->
+<div class="slide dark">
+  <div class="pad">
+    <div class="top"><span>100 Yards · The Read</span><span>Seed–Series A</span></div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="kicker">$11.5M Seed · Virtual patient testing</div>
+      <div class="hook">Inner Logic raised $11.5M to test medical devices on virtual patients.</div>
+      <div class="sub">Their homepage doesn't name a single customer. A five-part read on the marketing.</div>
+      <div class="shot"><img src="file:///Users/joshmait/Desktop/Claude/pavilion/funded-and-found-out/screenshots/2026-08-01/inner_logic.png"></div>
+    </div>
+    <div class="clearrow">
+      <div>C<span>CENTRICITY</span></div><div>L<span>LEGIBILITY</span></div><div>E<span>EDGE</span></div><div>A<span>ARGUMENT</span></div><div>R<span>RECALL</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 · CENTRICITY -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>01 / 05 · Centricity</span><span>Inner Logic</span></div>
+    <div class="dimhead" style="margin-top:20px;">
+      <div><div class="num">01</div><div class="dimname">Centricity</div></div>
+      <div class="grade" style="color:var(--C)">C</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">No visible copy means no visible customer. The device makers and surgeons who'd buy this never appear on the page.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Put the surgeon in the first line. "Test your device on 10,000 patients before you touch a real one."</div>
+    </div>
+    <div class="grow"></div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 3 · LEGIBILITY -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>02 / 05 · Legibility</span><span>Inner Logic</span></div>
+    <div class="dimhead" style="margin-top:20px;">
+      <div><div class="num">02</div><div class="dimname">Legibility</div></div>
+      <div class="grade" style="color:var(--C)">C</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">The one-line pitch works in the press coverage. On the site itself, the job to be done is invisible.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Say the job on the page, not just in TechCrunch. "Virtual patients for procedural device testing." Above the fold.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 4 · EDGE -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>03 / 05 · Edge</span><span>Inner Logic</span></div>
+    <div class="dimhead" style="margin-top:20px;">
+      <div><div class="num">03</div><div class="dimname">Edge</div></div>
+      <div class="grade" style="color:var(--C)">C</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">"Virtual patients for procedural devices" is genuinely differentiated. The site never claims it out loud.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">You own a category no competitor can say. Lead with the wedge — make it the headline, not a footnote.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 5 · ARGUMENT -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>04 / 05 · Argument</span><span>Inner Logic</span></div>
+    <div class="dimhead" style="margin-top:20px;">
+      <div><div class="num">04</div><div class="dimname">Argument</div></div>
+      <div class="grade" style="color:var(--C)">C</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">Autonomous surgery is a real thesis. It lives in TechCrunch, not on innerlogic.ai.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">Move the belief onto the homepage. If devices should be proven in silico first, say it — and dare the reader to disagree.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 6 · RECALL -->
+<div class="slide light">
+  <div class="pad">
+    <div class="top"><span>05 / 05 · Recall</span><span>Inner Logic</span></div>
+    <div class="dimhead" style="margin-top:20px;">
+      <div><div class="num">05</div><div class="dimname">Recall</div></div>
+      <div class="grade" style="color:var(--B)">B</div>
+    </div>
+    <div class="rule"></div>
+    <div class="label">The read</div>
+    <div class="read">"Inner Logic" is a clean rename from Semaphor — quietly confident, easy to remember after one pass.</div>
+    <div class="fixbox">
+      <div class="label" style="color:var(--accent)">The fix</div>
+      <div class="fix">The name is doing its job. Give it a visual identity as sure of itself as the word.</div>
+    </div>
+    <div class="grow"></div>
+    <div class="foot"><span>C · L · E · A · R</span><span>by Josh Mait · 100 Yards</span></div>
+  </div>
+</div>
+
+<!-- 7 · CLOSE / CTA -->
+<div class="slide dark">
+  <div class="pad">
+    <div class="top"><span>100 Yards · The Read</span><span>Inner Logic</span></div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center;">
+      <div class="kicker">The through-line</div>
+      <div class="synth">A genuinely novel product, hidden behind a homepage that says almost nothing. The technology is differentiated. The story isn't on the page yet.</div>
+    </div>
+    <div class="cta">
+      <div class="ctaline">This is a 60-second read from the 100 Yards brand engine. Want one on your site?</div>
+      <div class="ctaurl">100yards-readout.netlify.app</div>
+    </div>
+  </div>
+</div>

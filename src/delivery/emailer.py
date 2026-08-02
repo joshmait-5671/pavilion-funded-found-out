@@ -63,18 +63,18 @@ def send_report(
         date_str = datetime.now().strftime("%B %d, %Y")
         names_str = ', '.join(company_names)
 
-        subject = f"Funded & Found Out — {date_str}"
+        subject = f"Hyped & Found Out — {date_str}"
 
         body = f"""Hey Josh,
 
-Your weekly Funded & Found Out report is attached and ready for Thursday.
+This week's Hyped & Found Out is attached: AI companies in this week's news, graded on their marketing.
 
 This week's companies: {names_str}
 
-The PDF is formatted as a LinkedIn carousel. Upload it directly to a LinkedIn post as a document — LinkedIn will auto-render it as a swipeable carousel.
+The PDF is square-slide format — upload it to a LinkedIn post as a document and it renders as a swipeable carousel.
 
 —
-Funded & Found Out Bot 🤖
+Hyped & Found Out Bot 🤖
 """
 
         msg = MIMEMultipart()

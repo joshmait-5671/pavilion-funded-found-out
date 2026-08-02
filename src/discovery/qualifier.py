@@ -32,18 +32,18 @@ QUALIFICATION CRITERIA:
 - Company type: AI / software / SaaS company building a digital product. The product must be primarily AI- or software-driven. SKIP: pure hardware (no software story), biotech with no AI angle, life sciences, real estate, energy without AI, defense, consumer-goods physical products, financial services without AI, generic media properties.
 - Substantive mention: the company is the subject of the news, not a passing reference. Skip "X uses Y's API" type asides unless Y is itself the story. Skip articles that just list 30 companies in a paragraph.
 - Real company with a real homepage. SKIP: fictional examples, anonymous "a startup", VC firms talking about themselves (a VC firm is not the news subject — its portfolio company is).
-- Newsworthy this week: it's in the news because something happened — a launch, a controversy, a layoff, a deal, a rebrand, a stat, a debate, a fundraise, a quote, a product update. The thing that happened is the "news_hook".
-- No size filter. Anthropic at $900B and a 5-person seed startup both qualify if they're in the news.
+- Newsworthy this week: something happened — ideally a fundraise, but also a launch, a rebrand, a notable stat, a debate. The ideal hook is a just-closed seed or Series A round: fresh budget, real GTM need.
+- EARLY-STAGE ONLY — THIS IS A NEW-BUSINESS PROSPECT LIST. Every company that survives is a potential client for a small marketing/positioning agency. Keep a company ONLY if it's plausibly SEED to SERIES A: recently founded (roughly the last ~1-4 years), small, still figuring out its story, with no real in-house brand team yet. HARD SKIP anything bigger — household names, market movers, public companies, decacorns, big-tech, and anything at Series B or later or otherwise large enough to run its own marketing org. Explicit SKIP list (and anyone in their tier): OpenAI, Anthropic, Google / DeepMind / Gemini, Microsoft / Copilot, Meta / Llama, Amazon, Apple, Nvidia, xAI / Grok, DeepSeek, Mistral, Perplexity, Databricks, Scale AI, Cohere, Stability, Hugging Face, Kalshi — and any similarly well-known or heavily-funded name. THE TEST: "Could a boutique agency realistically win this company as a new client?" If they're too big to need outside help, SKIP. You don't need an exact round number — if a company is unmistakably early-stage, keep it; only exclude when it's clearly too big or past Series A.
 
 For each qualified company, extract:
 - company_name: The company's name (string)
-- news_hook: 4-10 words describing why they're in the news this week (e.g. "$900B fundraising round", "AI-driven RIF announcement", "MS 365 integration launch", "Claude API hits new model SOTA")
+- news_hook: 4-10 words describing why they're breaking through this week (e.g. "Series A for AI contract review", "launches coding agent for COBOL", "scrutiny over training-data scraping", "$40M to automate claims")
 - website_url: Their homepage. If not stated, infer (e.g. "Acme AI" → "https://acme.ai" or "https://acmeai.com")
 - description: 1-2 sentences on what the company does and who their customer is
 - news_url: The most relevant article/email link from the input
 
 Return a JSON array only — no other text, no markdown fences.
-Return max 12 results, ranked by newsworthiness + clarity of the hook.
+Return max 12 results, ranked by how interesting they are to critique — favoring young-ish, rising companies over famous ones. If a giant from the SKIP list slipped into your thinking, drop it.
 If no results qualify, return []."""
 
     response = client.messages.create(

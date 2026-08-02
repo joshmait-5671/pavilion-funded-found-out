@@ -24,8 +24,9 @@ import anthropic
 from src.discovery.email_searcher import search_funding_news
 from src.discovery.qualifier import qualify_companies
 from src.analysis.scraper import scrape_website
-from src.analysis.screenshotter import take_screenshots
+from src.analysis.screenshotter import take_screenshots, capture_page
 from src.analysis.evaluator import evaluate_company
+from src.analysis.verifier import verify_identity, passes as identity_passes
 from src.report.generator import generate_carousel, validate_batch
 from src.tracking.database import Database
 from src.delivery.emailer import send_curation_prompt
@@ -112,58 +113,84 @@ def main():
         print(f"   📝 Starter episode JSON: {starter_path}")
         sys.exit(0)
 
-    companies = fresh[:MIN_COMPANIES]
+    print(f"\n   Qualified pool ({len(fresh)}): {', '.join(c['company_name'] for c in fresh)}")
+    print(f"   Filling {MIN_COMPANIES} slots, backfilling past any site that won't screenshot or grade.\n")
 
-    print(f"\n   Selected: {', '.join(c['company_name'] for c in companies)}\n")
-
-    # ── STEP 3: ANALYZE ──────────────────────────────────────────────
+    # ── STEP 3: ANALYZE (with backfill) ──────────────────────────────
+    # Walk the full qualified pool. A company is kept only if it produces
+    # BOTH a usable screenshot AND a valid evaluation. Anything that fails
+    # either is dropped and the next candidate is pulled — so one bad site
+    # never sinks the whole issue. Stop once MIN_COMPANIES slots are filled.
     print("🔬 Step 3: Analyzing websites...")
+    companies = []
     evaluations = []
     all_screenshots = []
 
-    for i, company in enumerate(companies):
+    for company in fresh:
+        if len(companies) >= MIN_COMPANIES:
+            break
         name = company.get('company_name', '?')
         url = company.get('website_url', '')
-        print(f"   [{i+1}/{len(companies)}] {name} — {url}")
+        print(f"   [{len(companies) + 1}/{MIN_COMPANIES}] {name} — {url}")
 
         if not url:
-            logger.warning(f"  No URL for {name}, skipping")
-            evaluations.append(None)
-            all_screenshots.append([])
+            logger.warning(f"  No URL for {name} — skipping, backfilling from pool")
+            print(f"     ✗ No URL — pulling next candidate")
             continue
 
-        # Scrape
-        content = scrape_website(url)
-        if not content['success']:
-            logger.warning(f"  Scrape failed for {url}")
-
-        # Screenshots
+        # One Chromium render → screenshot + page text, so the image, the
+        # grades, and the identity check all read the exact same page.
+        # No usable shot → drop & backfill.
         slug = name.lower().replace(' ', '_').replace('/', '')[:28]
-        shots = take_screenshots(url, BASE_DIR / 'screenshots' / run_date, slug)
-        all_screenshots.append(shots)
-        print(f"     ✓ {len(shots)} screenshots")
+        shots, content = capture_page(url, BASE_DIR / 'screenshots' / run_date, slug)
+        if not shots:
+            logger.warning(f"  Screenshot failed for {name} ({url}) — skipping, backfilling from pool")
+            print(f"     ✗ Screenshot failed — pulling next candidate")
+            continue
 
-        # CLEAR evaluation
+        # Fall back to the requests scraper only if the rendered DOM had no text.
+        if not content.get('success'):
+            fb = scrape_website(url)
+            if fb.get('success'):
+                content = fb
+            else:
+                logger.warning(f"  No readable page text for {url} — identity gate will decide")
+
+        # CORRECTNESS GATE: confirm this homepage is actually the company the
+        # news is about (guards against inferred/wrong URLs and name collisions).
+        # This is named + published, so an unverified company is dropped, not shipped.
+        verdict = verify_identity(company, content, client)
+        if not identity_passes(verdict):
+            reason = (verdict or {}).get('reason', 'could not confirm the homepage matches the company')
+            logger.warning(f"  Identity check failed for {name} ({url}): {reason} — skipping, backfilling")
+            print(f"     ✗ Identity check failed — {reason}")
+            print(f"       pulling next candidate")
+            continue
+        company['_identity'] = verdict
+        print(f"     ✓ Identity verified ({verdict.get('confidence')})")
+
+        # CLEAR evaluation. Failure → drop & backfill.
         evaluation = evaluate_company(company, content, client)
+        if evaluation is None:
+            logger.warning(f"  Evaluation failed for {name} — skipping, backfilling from pool")
+            print(f"     ✗ Evaluation failed — pulling next candidate")
+            continue
+
+        companies.append(company)
         evaluations.append(evaluation)
-        if evaluation:
-            grades = [evaluation['grades'][d]['grade'] for d in ['centricity', 'legibility', 'edge', 'argument', 'recall']]
-            print(f"     ✓ Grades: C={grades[0]} L={grades[1]} E={grades[2]} A={grades[3]} R={grades[4]}")
-        else:
-            print(f"     ✗ Evaluation failed")
+        all_screenshots.append(shots)
+        grades = [evaluation['grades'][d]['grade'] for d in ['centricity', 'legibility', 'edge', 'argument', 'recall']]
+        print(f"     ✓ Grades: C={grades[0]} L={grades[1]} E={grades[2]} A={grades[3]} R={grades[4]}")
 
-    # Drop any companies where evaluation failed
-    valid = [
-        (c, e, s)
-        for c, e, s in zip(companies, evaluations, all_screenshots)
-        if e is not None
-    ]
-
-    if not valid:
-        logger.error("All evaluations failed. Nothing to report.")
+    if not companies:
+        logger.error("No companies survived analysis. Nothing to report.")
         sys.exit(1)
 
-    companies, evaluations, all_screenshots = map(list, zip(*valid))
+    if len(companies) < MIN_COMPANIES:
+        logger.warning(f"Only {len(companies)} of {MIN_COMPANIES} slots filled (pool exhausted). Publishing a shorter issue.")
+        print(f"   ⚠️  {len(companies)}/{MIN_COMPANIES} slots filled — publishing a shorter issue.")
+
+    print(f"\n   Final lineup: {', '.join(c['company_name'] for c in companies)}\n")
 
     # ── STEP 3.5: CHECKPOINT (so we can re-render without re-running the LLM) ─
     checkpoint_dir = BASE_DIR / 'data' / 'checkpoints'
