@@ -45,7 +45,68 @@ DEFINITIONS = {
     'recall':     'Will anyone remember you tomorrow?',
 }
 # Each card shows a different vertical slice of the (tall) homepage screenshot.
-CHUNK = {'centricity': '0%', 'legibility': '26%', 'edge': '50%', 'argument': '74%', 'recall': '100%'}
+# Fallback even-spacing if content detection fails; real positions are computed
+# per-screenshot by slice_positions() so cards land on content, not whitespace.
+CHUNK_FALLBACK = ['0%', '26%', '50%', '74%', '100%']
+
+
+def slice_positions(shot_path, n: int = 5, band_w: int = 720, band_h: int = 392) -> list[str]:
+    """Pick n content-dense vertical windows of the tall homepage screenshot,
+    ordered top->bottom, and return object-position Y% strings for the .band imgs.
+
+    These startup homepages are 7-10x taller than wide and mostly whitespace, so
+    fixed 0/26/50/74/100% slices land on blank gaps. This scans the screenshot for
+    visual DETAIL — text and UI edges, not just non-white pixels — so it snaps each
+    card to a busy content band and skips both whitespace AND solid color fields
+    (a black CTA or blue hero panel scores as low as blank white). Falls back to
+    even spacing on any error."""
+    try:
+        from PIL import Image
+        im = Image.open(shot_path).convert('L')
+        W, H = im.size
+        scale = band_w / W
+        overflow = max(H * scale - band_h, 1.0)   # scaled-image overflow past the band
+        win = max(1, int(round(band_h / scale)))  # band height expressed in original px
+        if H <= win:
+            return ['0%'] * n
+        w = 48
+        small = im.resize((w, H))                 # tiny width → fast per-row scan
+        px = small.load()
+        # per-row detail = horizontal spread (text/edges) + vertical change vs prev
+        # row. Solid fills (white, black, a flat gradient) score ~0; text/UI scores high.
+        row = [0.0] * H
+        prev = [px[x, 0] for x in range(w)]
+        for y in range(H):
+            vals = [px[x, y] for x in range(w)]
+            m = sum(vals) / w
+            std = (sum((v - m) ** 2 for v in vals) / w) ** 0.5
+            vgrad = sum(abs(vals[x] - prev[x]) for x in range(w)) / w
+            row[y] = std + vgrad
+            prev = vals
+        pref = [0.0] * (H + 1)
+        for y in range(H):
+            pref[y + 1] = pref[y] + row[y]
+        step = max(1, win // 10)
+        cands = range(0, H - win + 1, step)
+        used, tops = [], []
+        for top in sorted(cands, key=lambda t: pref[t + win] - pref[t], reverse=True):
+            c = top + win / 2
+            if all(abs(c - u) >= win * 0.9 for u in used):   # keep windows non-overlapping
+                used.append(c)
+                tops.append(top)
+                if len(tops) == n:
+                    break
+        while len(tops) < n:                       # sparse page: pad with an even spread
+            tops.append(int((H - win) * len(tops) / max(1, n - 1)))
+        tops.sort()
+        # Flag windows too flat to be worth showing (dark/empty color fields). A
+        # window scoring below 35% of the busiest one gets a branded panel instead.
+        dens = [pref[t + win] - pref[t] for t in tops]
+        best = max(dens) or 1.0
+        return [(f"{max(0.0, min(100.0, t * scale / overflow * 100)):.1f}%", d < 0.35 * best)
+                for t, d in zip(tops, dens)]
+    except Exception:
+        return [(y, False) for y in CHUNK_FALLBACK[:n]]
 
 
 def latest_checkpoint() -> Path:
@@ -97,20 +158,28 @@ Write, and return ONLY this JSON:
     return json.loads(text)
 
 
-def card_html(i: int, dim: str, read: str, fix: str, shot_uri: str) -> str:
-    ypos = CHUNK[dim]
+def card_html(i: int, dim: str, read: str, fix: str, shot_uri: str,
+              ypos: str, weak: bool = False) -> str:
+    # When the homepage has no worthwhile visual at this depth (a dark/empty color
+    # field), swap the screenshot band for a branded orange panel that promotes
+    # 'the read' to a pull-quote. 'The read' below is dropped to avoid repeating it.
+    if weak:
+        visual = f'<div class="band quote"><div class="qtext serif">{read}</div></div>'
+        body = ''
+    else:
+        visual = f'<div class="band"><img src="{shot_uri}" style="object-position:50% {ypos};"></div>'
+        body = f'<div class="label">The read</div>\n    <div class="read">{read}</div>'
     return f"""
 <div class="slide light">
   <div class="pad">
     <div class="top"><span>0{i} / 05 &nbsp;·&nbsp; {dim.capitalize()}</span><span>{{company}}</span></div>
-    <div class="band"><img src="{shot_uri}" style="object-position:50% {ypos};"></div>
+    {visual}
     <div class="namerow">
       <div class="dimname">{dim.capitalize()}</div>
       <div class="dimdef">{DEFINITIONS[dim]}</div>
     </div>
     <div class="rule"></div>
-    <div class="label">The read</div>
-    <div class="read">{read}</div>
+    {body}
     <div class="fixbox">
       <div class="label" style="color:{ACCENT}">The fix</div>
       <div class="fix">{fix}</div>
@@ -120,11 +189,12 @@ def card_html(i: int, dim: str, read: str, fix: str, shot_uri: str) -> str:
 </div>"""
 
 
-def build_html(company: dict, evaluation: dict, post: dict, shot_uri: str) -> str:
+def build_html(company: dict, evaluation: dict, post: dict, shot_uri: str,
+               positions: list[str]) -> str:
     name = company.get('company_name', '')
     cards = "".join(
         card_html(i + 1, d, evaluation['grades'][d]['explanation'],
-                  post['dims'][d]['fix'], shot_uri)
+                  post['dims'][d]['fix'], shot_uri, positions[i][0], positions[i][1])
         for i, d in enumerate(DIMS)
     ).replace('{company}', name)
     return TEMPLATE.format(
@@ -172,6 +242,9 @@ TEMPLATE = """<meta charset="utf-8">
   /* dimension card */
   .band {{ width:100%; height:392px; border-radius:8px; overflow:hidden; border:1px solid var(--line); margin-top:12px; background:#fff; }}
   .band img {{ width:100%; height:100%; object-fit:cover; }}
+  .band.quote {{ background:var(--accent); border:none; display:flex; align-items:center; padding:44px 52px; position:relative; }}
+  .band.quote::before {{ content:'\\201C'; position:absolute; top:2px; left:34px; font-family:'Fraunces',Georgia,serif; font-size:120px; line-height:1; color:rgba(255,255,255,.28); }}
+  .band.quote .qtext {{ position:relative; color:#fff; font-size:31px; line-height:1.22; font-weight:600; letter-spacing:-.01em; }}
   .namerow {{ margin-top:15px; }}
   .dimname {{ font-size:12.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--mute); font-weight:700; }}
   .dimdef {{ font-family:'Fraunces',Georgia,serif; font-size:20px; color:var(--accent); font-weight:600; margin-top:5px; line-height:1.22; letter-spacing:-.01em; }}
@@ -265,12 +338,16 @@ def main():
     import shutil
     shutil.copy(shot, out_dir / 'shot.png')
     shot_uri = 'shot.png'
+    positions = slice_positions(out_dir / 'shot.png')
+    print("   Slice positions (content-aware): " +
+          ", ".join(f"{y}{'*' if weak else ''}" for y, weak in positions) +
+          "   (* = branded panel, too flat to show)")
 
     client = anthropic.Anthropic(api_key=os.environ.get('ANTHROPIC_API_KEY'))
     print(f"Composing post for {company['company_name']}...")
     post = compose(company, evaluation, client)
 
-    html_path.write_text(build_html(company, evaluation, post, shot_uri))
+    html_path.write_text(build_html(company, evaluation, post, shot_uri, positions))
     (out_dir / 'caption.txt').write_text(
         f"── DOCUMENT TITLE ──\n{post['doc_title']}\n\n── POST CAPTION ──\n{post['caption']}\n"
     )

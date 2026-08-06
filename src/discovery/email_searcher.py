@@ -139,18 +139,31 @@ def _extract_body(payload: dict) -> str:
 
 # ─── SEARCH ────────────────────────────────────────────────────────────────────
 
+DIGEST_SUBJECT = 'Daily AI Digest'  # Josh's self-generated weekly AI-company roundup
+
+
 def _build_query(days: int) -> str:
     """
-    Two-arm query:
-      A) Curated newsletter senders (broad — qualifier filters)
-      B) Any sender whose subject/body contains funding language
-    Combined with `in:anywhere` so Promotions/Updates categories are searched.
+    Three trusted sources — and CRUCIALLY, private 1:1 mail is never read:
+      A) Curated newsletter senders — trusted, any folder.
+      B) The Daily AI Digest — matched by subject (so we catch it without
+         whitelisting a personal address, which would pull in private mail).
+      C) A funding-keyword sweep, RESTRICTED to bulk-mail categories
+         (Promotions/Updates/Forums). Primary is never keyword-swept, so client
+         threads and personal correspondence in the inbox stay unreadable.
+
+    The old query keyword-swept `in:anywhere` across every sender, which vacuumed
+    up private client email that merely mentioned money (a Neuroflow deal thread,
+    Aktivate intake notes). Scoping arm C to bulk categories closes that leak.
     """
     senders_or = ' OR '.join(f'from:{s}' for s in NEWSLETTER_SENDERS)
     keyword_or = ' OR '.join(f'"{kw}"' for kw in FUNDING_KEYWORDS)
+    bulk = 'category:promotions OR category:updates OR category:forums'
     return (
-        f'newer_than:{days}d in:anywhere '
-        f'(({senders_or}) OR ({keyword_or}))'
+        f'newer_than:{days}d '
+        f'(({senders_or}) '
+        f'OR subject:"{DIGEST_SUBJECT}" '
+        f'OR (({keyword_or}) ({bulk})))'
     )
 
 
