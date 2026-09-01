@@ -222,7 +222,7 @@ TEMPLATE = """<meta charset="utf-8">
   .pad {{ padding:44px 50px; height:100%; display:flex; flex-direction:column; }}
   .top {{ display:flex; justify-content:space-between; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--mute); font-weight:600; }}
   .dark .top {{ color:#9a9a9a; }}
-  .foot {{ display:flex; justify-content:space-between; align-items:center; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--mute); font-weight:600; margin-top:auto; }}
+  .foot {{ display:flex; justify-content:space-between; align-items:center; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--mute); font-weight:600; margin-top:auto; padding-top:16px; flex-shrink:0; }}
   .mark {{ letter-spacing:.02em; }}
   .mark b {{ color:var(--accent); }}
   .grow {{ flex:1; }}
@@ -240,7 +240,7 @@ TEMPLATE = """<meta charset="utf-8">
   .ctaline {{ font-size:15px; color:#d7d2cc; font-weight:500; line-height:1.5; }}
   .ctaurl {{ font-size:22px; font-weight:800; color:var(--accentlt); margin-top:10px; letter-spacing:-.01em; }}
   /* dimension card */
-  .band {{ width:100%; height:392px; border-radius:8px; overflow:hidden; border:1px solid var(--line); margin-top:12px; background:#fff; }}
+  .band {{ width:100%; height:392px; flex:0 1 auto; min-height:286px; border-radius:8px; overflow:hidden; border:1px solid var(--line); margin-top:12px; background:#fff; }}
   .band img {{ width:100%; height:100%; object-fit:cover; }}
   .band.quote {{ background:var(--accent); border:none; display:flex; align-items:center; padding:44px 52px; position:relative; }}
   .band.quote::before {{ content:'\\201C'; position:absolute; top:2px; left:34px; font-family:'Fraunces',Georgia,serif; font-size:120px; line-height:1; color:rgba(255,255,255,.28); }}

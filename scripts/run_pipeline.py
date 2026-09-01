@@ -22,12 +22,12 @@ load_dotenv()
 
 import anthropic
 from src.discovery.email_searcher import search_funding_news
-from src.discovery.qualifier import qualify_companies
+from src.discovery.qualifier import qualify_companies, _screen_out_too_big, _dedupe_companies
 from src.analysis.scraper import scrape_website
 from src.analysis.screenshotter import take_screenshots, capture_page
 from src.analysis.evaluator import evaluate_company
 from src.analysis.verifier import verify_identity, passes as identity_passes
-from src.report.generator import generate_carousel, validate_batch
+from src.report.generator import validate_batch
 from src.tracking.database import Database
 from src.delivery.emailer import send_curation_prompt
 
@@ -50,7 +50,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main(seed_path=None):
     run_date = datetime.now().strftime('%Y-%m-%d')
     logger.info(f"=== Funded & Found Out Pipeline — {run_date} ===")
 
@@ -62,25 +62,45 @@ def main():
     client = anthropic.Anthropic(api_key=api_key)
     db = Database(BASE_DIR / 'data' / 'tracker.db')
 
-    # ── STEP 1: DISCOVERY ────────────────────────────────────────────
-    print("\n🔍 Step 1: Scanning Gmail accounts for funding announcements...")
-    raw_results = search_funding_news(max_results_per_query=50, days=7)
+    # ── STEPS 1+2: DISCOVERY & QUALIFY ───────────────────────────────
+    # Normal path reads the newsletters. --seed skips straight to a hand-supplied
+    # candidate list, so an expired Gmail token can delay the week's post but
+    # never block it. Seeded companies still get the deterministic too-big screen
+    # and the same identity check, screenshot and grade as discovered ones.
+    if seed_path:
+        print(f"\n🌱 Steps 1+2 skipped — seeding candidates from {seed_path}")
+        try:
+            seeded = json.loads(Path(seed_path).read_text())
+        except Exception as e:
+            logger.error(f"Could not read seed file {seed_path}: {e}")
+            sys.exit(1)
+        if isinstance(seeded, dict):
+            seeded = seeded.get('companies', [])
+        missing = [c.get('company_name', '?') for c in seeded if not c.get('website_url')]
+        if missing:
+            logger.error(f"Seed entries missing website_url: {missing}")
+            sys.exit(1)
+        qualified = _dedupe_companies(_screen_out_too_big(seeded))
+        print(f"   Seeded: {len(seeded)} → {len(qualified)} after too-big screen + dedupe")
+    else:
+        print("\n🔍 Step 1: Scanning Gmail accounts for funding announcements...")
+        raw_results = search_funding_news(max_results_per_query=50, days=7)
 
-    if not raw_results:
-        logger.error(
-            "No newsletters captured. Check that auth/token-*.json files exist "
-            "and were authorized with gmail.readonly scope. Run: "
-            "python scripts/auth_gmail.py <label>"
-        )
-        sys.exit(1)
+        if not raw_results:
+            logger.error(
+                "No newsletters captured. Check that auth/token-*.json files exist "
+                "and were authorized with gmail.readonly scope. Run: "
+                "python scripts/auth_gmail.py <label>   "
+                "(or bypass discovery: run_pipeline.py --seed candidates.json)"
+            )
+            sys.exit(1)
 
-    print(f"   Found {len(raw_results)} newsletter messages across all accounts")
+        print(f"   Found {len(raw_results)} newsletter messages across all accounts")
 
-    # ── STEP 2: QUALIFY ──────────────────────────────────────────────
-    print("\n🤖 Step 2: Qualifying companies with Claude...")
-    qualified = qualify_companies(raw_results, client)
+        print("\n🤖 Step 2: Qualifying companies with Claude...")
+        qualified = qualify_companies(raw_results, client)
 
-    print(f"   Qualified: {len(qualified)} companies")
+        print(f"   Qualified: {len(qualified)} companies")
 
     # Remove recently covered companies
     fresh = [c for c in qualified if not db.is_recently_covered(c['company_name'])]
@@ -215,34 +235,28 @@ def main():
         sys.exit(1)
     print(f"   ✓ Batch validated ({len(companies)} companies, no dupes, all screenshots present)")
 
-    # ── STEP 4: GENERATE PDF ─────────────────────────────────────────
-    print(f"\n📄 Step 4: Generating PDF carousel ({len(companies)} companies)...")
-    pdf_path = generate_carousel(
-        companies=companies,
-        evaluations=evaluations,
-        screenshot_paths=all_screenshots,
-        output_dir=BASE_DIR / 'output',
-        slides_dir=BASE_DIR / 'slides' / run_date,
-    )
-
-    if not pdf_path:
-        logger.error("PDF generation failed")
-        sys.exit(1)
-
-    # ── STEP 5: SAVE TO DB ────────────────────────────────────────────
+    # ── STEP 4: SAVE TO DB ────────────────────────────────────────────
+    # The old 5-company report PDF used to render here. The product is now a
+    # single-company carousel from make_post.py, so this pipeline's job ends at
+    # a verified, graded lineup — no PDF.
     db.add_covered_companies(companies, run_date)
     db.log_run(
         run_date=run_date,
         companies_found=len(qualified),
         companies_analyzed=len(companies),
-        pdf_path=str(pdf_path),
+        pdf_path=str(checkpoint_path),
     )
 
     print(f"\n✅ Done!")
-    print(f"   PDF: {pdf_path}")
-    print(f"   Companies: {', '.join(c['company_name'] for c in companies)}")
-    print(f"\n   Send it Wednesday: python scripts/run_delivery.py")
+    print(f"   Pick one and build the post:")
+    for c in companies:
+        print(f"     .venv/bin/python scripts/make_post.py \"{c['company_name']}\"")
 
 
 if __name__ == '__main__':
-    main()
+    import argparse
+    ap = argparse.ArgumentParser(description="The Read — weekly discovery pipeline")
+    ap.add_argument('--seed', metavar='FILE',
+                    help='JSON list of candidate companies (company_name, website_url, '
+                         'news_hook, description, news_url). Skips the Gmail scan.')
+    main(seed_path=ap.parse_args().seed)

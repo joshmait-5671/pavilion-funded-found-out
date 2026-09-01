@@ -2,11 +2,74 @@
 import asyncio
 import logging
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
+# Early-stage company sites fail in boringly predictable ways: a marketing domain
+# that only answers on www (or only on the apex), a half-configured cert, a hero
+# that never stops fetching so `networkidle` never fires. Each of those used to
+# drop a company from the week's lineup and backfill junk in its place, so every
+# navigation now walks host variants x load-strategies before giving up.
+NAV_STRATEGIES = [
+    ('networkidle', 25000),
+    ('load', 25000),
+    ('domcontentloaded', 20000),
+]
 
-async def _take_screenshots_async(url: str, output_dir: Path, company_slug: str) -> list[str]:
+
+def url_candidates(url: str) -> list:
+    """The URL as given, plus its www<->apex twin. Order is preserved and dupes dropped."""
+    out = [url]
+    try:
+        parts = urlsplit(url)
+        host = parts.netloc
+        if host.startswith('www.'):
+            twin = host[4:]
+        else:
+            twin = 'www.' + host
+        out.append(urlunsplit((parts.scheme, twin, parts.path, parts.query, parts.fragment)))
+    except Exception:
+        pass
+    seen = set()
+    return [u for u in out if not (u in seen or seen.add(u))]
+
+
+async def _goto_resilient(page, url: str) -> str:
+    """Try every host variant against every load strategy. Returns the URL that
+    loaded, or '' if the site is genuinely unreachable."""
+    last_err = None
+    for candidate in url_candidates(url):
+        for wait_until, timeout in NAV_STRATEGIES:
+            try:
+                await page.goto(candidate, wait_until=wait_until, timeout=timeout)
+                if candidate != url:
+                    logger.info(f"Reached {candidate} (fallback from {url})")
+                return candidate
+            except Exception as e:
+                last_err = e
+                # A dead host fails identically on every strategy — don't burn
+                # three timeouts proving it. Move to the next candidate host.
+                if 'ERR_NAME_NOT_RESOLVED' in str(e):
+                    break
+    logger.warning(f"Navigation failed for {url}: {last_err}")
+    return ''
+
+
+async def _new_context(browser):
+    return await browser.new_context(
+        viewport={'width': 1440, 'height': 1800},
+        # Half-configured certs on early-stage marketing domains are a deploy
+        # smell, not a reason to skip the company.
+        ignore_https_errors=True,
+        user_agent=(
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        ),
+    )
+
+
+async def _take_screenshots_async(url: str, output_dir: Path, company_slug: str) -> list:
     """
     Take one tall screenshot of the homepage (top 1800px).
     Returns a list with a single file path.
@@ -19,24 +82,11 @@ async def _take_screenshots_async(url: str, output_dir: Path, company_slug: str)
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         try:
-            context = await browser.new_context(
-                viewport={'width': 1440, 'height': 1800},
-                user_agent=(
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-                    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                ),
-            )
+            context = await _new_context(browser)
             page = await context.new_page()
 
-            # Navigate — fallback from networkidle to domcontentloaded
-            try:
-                await page.goto(url, wait_until='networkidle', timeout=20000)
-            except Exception:
-                try:
-                    await page.goto(url, wait_until='domcontentloaded', timeout=15000)
-                except Exception as e:
-                    logger.warning(f"Navigation failed for {url}: {e}")
-                    return paths
+            if not await _goto_resilient(page, url):
+                return paths
 
             await asyncio.sleep(2)  # Let animations and fonts settle
 
@@ -56,7 +106,7 @@ async def _take_screenshots_async(url: str, output_dir: Path, company_slug: str)
     return paths
 
 
-def take_screenshots(url: str, output_dir: Path, company_slug: str) -> list[str]:
+def take_screenshots(url: str, output_dir: Path, company_slug: str) -> list:
     """Sync wrapper around async screenshot function."""
     return asyncio.run(_take_screenshots_async(url, output_dir, company_slug))
 
@@ -79,23 +129,13 @@ async def _capture_async(url: str, output_dir: Path, company_slug: str):
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         try:
-            context = await browser.new_context(
-                viewport={'width': 1440, 'height': 1800},
-                user_agent=(
-                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
-                    'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                ),
-            )
+            context = await _new_context(browser)
             page = await context.new_page()
 
-            try:
-                await page.goto(url, wait_until='networkidle', timeout=20000)
-            except Exception:
-                try:
-                    await page.goto(url, wait_until='domcontentloaded', timeout=15000)
-                except Exception as e:
-                    logger.warning(f"Navigation failed for {url}: {e}")
-                    return paths, content
+            landed = await _goto_resilient(page, url)
+            if not landed:
+                return paths, content
+            content['url'] = landed
 
             # Nudge lazy-loaded heroes into painting, then return to the top.
             # Many JS-heavy sites render the hero blank if you shoot too early.
